@@ -4,56 +4,75 @@ import TurnstileWeb
 
 class UserController {
 
-    private let facebook = Facebook(
-        clientID: "194840897775038",
-        clientSecret: "cPh_UdAw4h1Y-xTmGw3x5w6NPGU"
-    )
+    private let facebookClient = FacebookClient()
 
-    func authenticateWithFacebook(_ req: Request) throws -> Future<FacebookLoginResponse> {
+    func authenticateWithFacebook(_ req: Request) throws -> Future<User> {
 
-        let userToken = try req.content.decode(FacebookLoginRequest.self).map(to: String.self) { request in
-            return request.authToken
+        let loginRequest = try req.content.decode(LoginRequest.self)
+        var role: String!
+        let facebookDetails = loginRequest.map { loginRequest -> FacebookClient.LoginResponse in
+            role = loginRequest.role
+            return try self.facebookClient.fetchUserWithFacebook(userToken: loginRequest.authToken)
         }
 
-        var userTokenString: String!
-        let userID = userToken.map { (_userToken) -> String in
-            userTokenString = _userToken
-            return try self.loginWithFacebook(userToken: _userToken)
+        let createUser = facebookDetails.map { facebookDetails -> User in
+
+            guard let role = User.Role(rawValue: role) else {
+                throw Abort(HTTPResponseStatus.badRequest, reason: "Invalid Role")
+            }
+            return User(facebookID: facebookDetails.id, userName: facebookDetails.name, role: role)
         }
 
-        let userDetails = userID.map {
-            return try self.fetchDetails(userID: $0, accesToken: userTokenString)
+        let saveUser = createUser.flatMap {
+            $0.save(on: req)
         }
 
-        let response = userDetails.map { (details) -> FacebookLoginResponse in
-            print(details)
-            return FacebookLoginResponse()
-        }
-
-        return response
+        return saveUser
     }
 
-    private func loginWithFacebook(userToken: String) throws -> String {
-        let token = AccessToken(string: userToken)
-        let user = try facebook.authenticate(credentials: token)
-        return user.uniqueID
-    }
-
-    private func fetchDetails(userID: String, accesToken: String) throws -> [String: String] {
-        let details = try facebook.fetchDetailsFromUser(userID: userID, accesToken: accesToken, details: ["name"])
-        return details
-    }
-
-    struct FacebookLoginRequest: Content {
+    struct LoginRequest: Content {
         var authToken: String
-    }
-
-    struct FacebookLoginResponse: Content {
-
+        var role: String
     }
 }
 
-extension Facebook {
+fileprivate extension UserController {
+
+    class FacebookClient {
+
+        private let facebook = Facebook(
+            clientID: "194840897775038",
+            clientSecret: "cPh_UdAw4h1Y-xTmGw3x5w6NPGU"
+        )
+
+        func fetchUserWithFacebook(userToken: String) throws -> LoginResponse {
+            let userID = try self.loginWithFacebook(userToken: userToken)
+            let userDetails = try self.fetchDetails(userID: userID, accesToken: userToken)
+            return userDetails
+        }
+
+        private func loginWithFacebook(userToken: String) throws -> String {
+            let token = AccessToken(string: userToken)
+            let user = try facebook.authenticate(credentials: token)
+            return user.uniqueID
+        }
+
+        private func fetchDetails(userID: String, accesToken: String) throws -> LoginResponse {
+            let details = try facebook.fetchDetailsFromUser(userID: userID, accesToken: accesToken, details: ["name"])
+            guard let name = details["name"] else {
+                throw FacebookError(json: [String: Any]())
+            }
+            return LoginResponse(name: name, id: userID)
+        }
+
+        struct LoginResponse: Content {
+            let name: String
+            let id: String
+        }
+    }
+}
+
+fileprivate extension Facebook {
 
     func fetchDetailsFromUser(userID: String, accesToken: String, details: [String]) throws -> [String: String] {
         var urlComponents = URLComponents(string: "https://graph.facebook.com/\(userID)")!
