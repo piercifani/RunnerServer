@@ -1,29 +1,41 @@
-import FluentSQLite
 import Vapor
+import Authentication
+import FluentSQLite
 
-/// A single entry of a Todo list.
-final class User: SQLiteModel {
+final class User: SQLiteUUIDModel {
 
+    var id: UUID?
+    var facebookID: String
+    var userName: String
+    var roleString: String
+
+    init(id: UUID? = nil, facebookID: String, userName: String, role: Role) {
+        self.id = id
+        self.facebookID = facebookID
+        self.userName = userName
+        self.roleString = role.rawValue
+    }
+}
+
+extension User: TokenAuthenticatable {
+    public typealias TokenType = BearerToken
+}
+
+extension Request {
+    func user() throws -> User {
+        return try requireAuthenticated(User.self)
+    }
+}
+
+extension User {
     enum Role: String {
         case admin
         case manager
         case user
     }
 
-    var id: Int?
-    var facebookID: String
-    var userName: String
-    var roleString: String
     var role: Role {
         return Role(rawValue: roleString)!
-    }
-
-    /// Creates a new `Todo`.
-    init(id: Int? = nil, facebookID: String, userName: String, role: Role) {
-        self.id = id
-        self.facebookID = facebookID
-        self.userName = userName
-        self.roleString = role.rawValue
     }
 }
 

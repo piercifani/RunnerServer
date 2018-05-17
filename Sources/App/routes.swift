@@ -7,12 +7,9 @@ public func routes(_ router: Router) throws {
         return "Hello, world!"
     }
 
-    // Example of configuring a controller
-    let todoController = TodoController()
-    router.get("todos", use: todoController.index)
-    router.post("todos", use: todoController.create)
-    router.delete("todos", Todo.parameter, use: todoController.delete)
+    let tokenAuthMiddleware = User.tokenAuthMiddleware()
 
     let userController = UserController()
     router.post("authenticate-facebook", use: userController.authenticateWithFacebook)
+    router.get("user", use: userController.userDetails)
 }

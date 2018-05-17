@@ -2,47 +2,72 @@ import Vapor
 import Turnstile
 import TurnstileWeb
 import Fluent
+import Authentication
 
 class UserController {
 
     private let facebookClient = FacebookClient()
 
-    func authenticateWithFacebook(_ req: Request) throws -> Future<User> {
+    func userDetails(_ req: Request) throws -> Future<User> {
+        return req.eventLoop.submit { () -> User in
+            return try req.user()
+        }
+    }
+
+    func authenticateWithFacebook(_ req: Request) throws -> Future<LoginResponse> {
+
+        // Transient properties
+        var _role: String!
+        var _facebookDetails: FacebookClient.LoginResponse!
+        var _user: User!
 
         let loginRequest = try req.content.decode(LoginRequest.self)
-        var role: String!
-        let facebookDetails = loginRequest.map { loginRequest -> FacebookClient.LoginResponse in
-            role = loginRequest.role
+        let fetchFacebookDetails = loginRequest.map { loginRequest -> FacebookClient.LoginResponse in
+            _role = loginRequest.role
             return try self.facebookClient.fetchUserWithFacebook(userToken: loginRequest.authToken)
         }
 
-        let createUser = facebookDetails.flatMap { facebookDetails -> Future<User> in
+        let queryExistingUser = fetchFacebookDetails.flatMap { facebookDetails -> Future<User?> in
+            _facebookDetails = facebookDetails
+            return try User.query(on: req).filter(\.facebookID == facebookDetails.id).first()
+        }
 
-            guard let role = User.Role(rawValue: role) else {
+        let updatedUser = queryExistingUser.flatMap({ (user) -> Future<User> in
+
+            guard let role = User.Role(rawValue: _role) else {
                 throw Abort(HTTPResponseStatus.badRequest, reason: "Invalid Role")
             }
 
-            let fetchMatchingUser = try User.query(on: req).filter(\.facebookID == facebookDetails.id).first()
-            let updatedUser = fetchMatchingUser.flatMap({ (user) ->  Future<User> in
-                if let user = user {
-                    user.roleString = role.rawValue
-                    user.userName = facebookDetails.name
-                    return user.update(on: req)
-                } else {
-                    let createdUser = User(facebookID: facebookDetails.id, userName: facebookDetails.name, role: role)
-                    return createdUser.save(on: req)
-                }
-            })
+            if let user = user {
+                user.roleString = role.rawValue
+                user.userName = _facebookDetails.name
+                return user.update(on: req)
+            } else {
+                let createdUser = User(facebookID: _facebookDetails.id, userName: _facebookDetails.name, role: role)
+                return createdUser.save(on: req)
+            }
+        })
 
-            return updatedUser
+        let generateToken = updatedUser.flatMap { (user) -> Future<BearerToken> in
+            _user = user
+            let token = try BearerToken.generate(for: user)
+            try req.authenticate(user)
+            return token.save(on: req)
         }
 
-        return createUser
+        return generateToken.map { (token) -> (LoginResponse) in
+            return LoginResponse(user: _user, token: token)
+        }
     }
 
     struct LoginRequest: Content {
         var authToken: String
         var role: String
+    }
+
+    struct LoginResponse: Content {
+        var user: User
+        var token: BearerToken
     }
 }
 
