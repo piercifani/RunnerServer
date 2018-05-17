@@ -1,1 +1,1 @@
-web: App --env=production --workdir="./"
+(..)Run serve --port $PORT --hostname 0.0.0.0
