@@ -1,6 +1,7 @@
 import Vapor
 import Turnstile
 import TurnstileWeb
+import Fluent
 
 class UserController {
 
@@ -15,19 +16,28 @@ class UserController {
             return try self.facebookClient.fetchUserWithFacebook(userToken: loginRequest.authToken)
         }
 
-        let createUser = facebookDetails.map { facebookDetails -> User in
+        let createUser = facebookDetails.flatMap { facebookDetails -> Future<User> in
 
             guard let role = User.Role(rawValue: role) else {
                 throw Abort(HTTPResponseStatus.badRequest, reason: "Invalid Role")
             }
-            return User(facebookID: facebookDetails.id, userName: facebookDetails.name, role: role)
+
+            let fetchMatchingUser = try User.query(on: req).filter(\.facebookID == facebookDetails.id).first()
+            let updatedUser = fetchMatchingUser.flatMap({ (user) ->  Future<User> in
+                if let user = user {
+                    user.roleString = role.rawValue
+                    user.userName = facebookDetails.name
+                    return user.update(on: req)
+                } else {
+                    let createdUser = User(facebookID: facebookDetails.id, userName: facebookDetails.name, role: role)
+                    return createdUser.save(on: req)
+                }
+            })
+
+            return updatedUser
         }
 
-        let saveUser = createUser.flatMap {
-            $0.save(on: req)
-        }
-
-        return saveUser
+        return createUser
     }
 
     struct LoginRequest: Content {
