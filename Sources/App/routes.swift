@@ -2,14 +2,23 @@ import Vapor
 
 /// Register your application's routes here.
 public func routes(_ router: Router) throws {
-    // Basic "Hello, world!" example
-    router.get("hello") { req in
-        return "Hello, world!"
-    }
 
     let tokenAuthMiddleware = User.tokenAuthMiddleware()
-
     let userController = UserController()
     router.post("authenticate-facebook", use: userController.authenticateWithFacebook)
-    router.get("user", use: userController.userDetails)
+
+    let protectedRoutes = [
+        router.get("user", use: userController.userDetails)
+    ]
+
+    protectedRoutes.addMiddleware(tokenAuthMiddleware, router: router)
+}
+
+extension Array where Element == Route<Responder> {
+    func addMiddleware(_ middleware: Middleware, router: Router) {
+        let middlewareRoute = router.grouped(middleware)
+        forEach { (route) in
+            middlewareRoute.register(route: route)
+        }
+    }
 }

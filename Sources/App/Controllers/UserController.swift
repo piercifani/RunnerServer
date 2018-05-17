@@ -51,7 +51,6 @@ class UserController {
         let generateToken = updatedUser.flatMap { (user) -> Future<BearerToken> in
             _user = user
             let token = try BearerToken.generate(for: user)
-            try req.authenticate(user)
             return token.save(on: req)
         }
 
