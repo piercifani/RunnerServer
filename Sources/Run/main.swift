@@ -8,7 +8,15 @@ var env = try Environment.detect()
 var services = Services.default()
 
 let defaultConfig = NIOServerConfig.default()
-var serverConfig = NIOServerConfig(hostname: "0.0.0.0", port: 8080, backlog: defaultConfig.backlog, workerCount: defaultConfig.workerCount, maxBodySize: defaultConfig.maxBodySize, reuseAddress: defaultConfig.reuseAddress, tcpNoDelay: defaultConfig.tcpNoDelay)
+var serverConfig = NIOServerConfig(
+    hostname: "0.0.0.0",
+    port: 8080,
+    backlog: defaultConfig.backlog,
+    workerCount: defaultConfig.workerCount,
+    maxBodySize: defaultConfig.maxBodySize,
+    reuseAddress: defaultConfig.reuseAddress,
+    tcpNoDelay: defaultConfig.tcpNoDelay
+)
 services.register { container in
     return serverConfig
 }
