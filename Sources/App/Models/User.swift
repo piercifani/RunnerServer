@@ -31,7 +31,7 @@ extension User {
     enum Role: String {
         case admin
         case manager
-        case user
+        case regular
     }
 
     var role: Role {
