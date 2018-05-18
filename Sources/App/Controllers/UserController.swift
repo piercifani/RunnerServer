@@ -83,7 +83,7 @@ class UserController {
         }
 
         return generateToken.map { (token) -> (LoginResponse) in
-            return LoginResponse(user: _user, token: token)
+            return LoginResponse(user: _user, token: token.token)
         }
     }
 
@@ -94,7 +94,7 @@ class UserController {
 
     struct LoginResponse: Content {
         var user: User
-        var token: BearerToken
+        var token: String
     }
 }
 
