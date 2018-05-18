@@ -8,10 +8,38 @@ class UserController {
 
     private let facebookClient = FacebookClient()
 
-    func userDetails(_ req: Request) throws -> Future<User> {
+    func requestingUserDetails(_ req: Request) throws -> Future<User> {
         return req.eventLoop.submit { () -> User in
             return try req.user()
         }
+    }
+
+    func index(_ req: Request) throws -> Future<[User]> {
+        let user = try req.user()
+        guard user.role != .regular else {
+            throw Abort(.unauthorized, reason: "Your role doesn't allow you to query this endpoint")
+        }
+        return User.query(on: req).all()
+    }
+
+    func details(_ req: Request) throws -> Future<User> {
+        let user = try req.user()
+        guard user.role != .regular else {
+            throw Abort(.unauthorized, reason: "Your role doesn't allow you to query this endpoint")
+        }
+
+        return try req.parameters.next(User.self)
+    }
+
+    func delete(_ req: Request) throws -> Future<HTTPStatus> {
+        let user = try req.user()
+        guard user.role == .admin else {
+            throw Abort(.unauthorized, reason: "Your role doesn't allow you to query this endpoint")
+        }
+
+        return try req.parameters.next(User.self).flatMap { user in
+            return user.delete(on: req)
+            }.transform(to: .ok)
     }
 
     func authenticateWithFacebook(_ req: Request) throws -> Future<LoginResponse> {
@@ -35,7 +63,7 @@ class UserController {
         let updatedUser = queryExistingUser.flatMap({ (user) -> Future<User> in
 
             guard let role = User.Role(rawValue: _role) else {
-                throw Abort(HTTPResponseStatus.badRequest, reason: "Invalid Role")
+                throw Abort(.badRequest, reason: "Invalid Role")
             }
 
             if let user = user {

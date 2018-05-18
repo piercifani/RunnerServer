@@ -8,7 +8,10 @@ public func routes(_ router: Router) throws {
     router.post("authenticate-facebook", use: userController.authenticateWithFacebook)
 
     let protectedRoutes = [
-        router.get("user", use: userController.userDetails)
+        router.get("me", use: userController.requestingUserDetails),
+        router.get("users", use: userController.index),
+        router.get("user", User.parameter, use: userController.details),
+        router.delete("user", User.parameter, use: userController.delete),
     ]
 
     protectedRoutes.addMiddleware(tokenAuthMiddleware, router: router)
