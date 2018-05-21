@@ -55,7 +55,7 @@ class UserController {
         }
 
         // Transient properties
-        var _userID: UUID!
+        var _user: User!
 
         let deleteUser = try req.parameters.next(User.self).flatMap { user -> Future<Void> in
             guard
@@ -64,12 +64,13 @@ class UserController {
                 userID != requestingUserID else {
                     throw Abort(.notAcceptable, reason: "You can't delete yourself")
             }
-            _userID = userID
+            _user = user
             return user.delete(on: req)
         }
 
         let deleteTokens = deleteUser.flatMap { (_) -> Future<Void> in
-            let allTokensQuery = try BearerToken.query(on: req).filter(\.userID == _userID).all()
+
+            let allTokensQuery = try _user.authTokens.query(on: req).all()
             let allTokensDelete = allTokensQuery.flatMap({ (tokens) -> Future<Void> in
                 let allDeleteTasks = tokens.map({$0.delete(on: req)})
                 return allDeleteTasks.flatten(on: req)
@@ -77,7 +78,17 @@ class UserController {
             return allTokensDelete
         }
 
-        return deleteTokens.transform(to: HTTPStatus.ok)
+        let deleteRuns = deleteTokens.flatMap { (_) -> Future<Void> in
+
+            let allRunsQuery = try _user.runs.query(on: req).all()
+            let allRunsDelete = allRunsQuery.flatMap({ (tokens) -> Future<Void> in
+                let allDeleteTasks = tokens.map({$0.delete(on: req)})
+                return allDeleteTasks.flatten(on: req)
+            })
+            return allRunsDelete
+        }
+
+        return deleteRuns.transform(to: HTTPStatus.ok)
     }
 
     func authenticateWithFacebook(_ req: Request) throws -> Future<LoginResponse> {
