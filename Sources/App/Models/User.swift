@@ -17,6 +17,12 @@ final class User: SQLiteUUIDModel {
     }
 }
 
+extension User {
+    var runs: Children<User, Run> {
+        return children(\.userID)
+    }
+}
+
 extension User: TokenAuthenticatable {
     public typealias TokenType = BearerToken
 }

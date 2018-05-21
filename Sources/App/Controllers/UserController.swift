@@ -129,8 +129,8 @@ fileprivate extension UserController {
         )
 
         func fetchUserWithFacebook(userToken: String) throws -> LoginResponse {
-            let userID = try self.loginWithFacebook(userToken: userToken)
-            let userDetails = try self.fetchDetails(userID: userID, accesToken: userToken)
+            let userID = try loginWithFacebook(userToken: userToken)
+            let userDetails = try fetchDetails(userID: userID, accesToken: userToken)
             return userDetails
         }
 
