@@ -27,6 +27,12 @@ class RunController {
         return createUser
     }
 
+    func deleteRun(_ req: Request) throws -> Future<HTTPStatus> {
+        let runToDelete = try req.parameters.next(Run.self)
+        let delete = runToDelete.flatMap({ return $0.delete(on: req)})
+        return delete.transform(to: HTTPStatus.ok)
+    }
+
     func editRun(_ req: Request) throws -> Future<Run> {
 
         let runToEdit = try req.parameters.next(Run.self)
