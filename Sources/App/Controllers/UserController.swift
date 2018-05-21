@@ -6,15 +6,20 @@ import Authentication
 
 class UserController {
 
-    private let facebookClient = FacebookClient()
+    init(runController: RunController) {
+        self.runController = runController
+    }
 
-    func requestingUserDetails(_ req: Request) throws -> Future<User> {
+    private let facebookClient = FacebookClient()
+    private unowned let runController: RunController
+
+    func fetchCurrentUserDetails(_ req: Request) throws -> Future<User> {
         return req.eventLoop.submit { () -> User in
             return try req.user()
         }
     }
 
-    func index(_ req: Request) throws -> Future<[User]> {
+    func fetchAllUsers(_ req: Request) throws -> Future<[User]> {
         let user = try req.user()
         guard user.role != .regular else {
             throw Abort(.unauthorized, reason: "Your role doesn't allow you to query this endpoint")
@@ -22,13 +27,25 @@ class UserController {
         return User.query(on: req).all()
     }
 
-    func details(_ req: Request) throws -> Future<User> {
+    func fetchUserDetails(_ req: Request) throws -> Future<User> {
         let user = try req.user()
         guard user.role != .regular else {
             throw Abort(.unauthorized, reason: "Your role doesn't allow you to query this endpoint")
         }
 
         return try req.parameters.next(User.self)
+    }
+
+    func fetchUserRuns(_ req: Request) throws -> Future<[Run]> {
+        let currentUser = try req.user()
+        guard currentUser.role != .regular else {
+            throw Abort(.unauthorized, reason: "Your role doesn't allow you to query this endpoint")
+        }
+
+        let user = try req.parameters.next(User.self)
+        return user.flatMap { (user) -> Future<[Run]> in
+            return try self.runController.fetchUserRuns(user: user, req: req)
+        }
     }
 
     func delete(_ req: Request) throws -> Future<HTTPStatus> {

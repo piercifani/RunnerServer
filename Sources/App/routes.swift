@@ -4,18 +4,20 @@ import Vapor
 public func routes(_ router: Router) throws {
 
     let tokenAuthMiddleware = User.tokenAuthMiddleware()
-    let userController = UserController()
+    let runController = RunController()
+    let userController = UserController(runController: runController)
     router.post("authenticate-facebook", use: userController.authenticateWithFacebook)
 
-    let runController = RunController()
-
     let protectedRoutes = [
+        router.get("me", use: userController.fetchCurrentUserDetails),
+        router.get("users", use: userController.fetchAllUsers),
+        router.get("users", User.parameter, use: userController.fetchUserDetails),
+        router.delete("users", User.parameter, use: userController.delete),
+        router.get("users", User.parameter, "runs", use: userController.fetchUserRuns),
         router.get("runs", use: runController.fetchCurrentUserRuns),
-        router.post("runs", use: runController.create),
-        router.get("me", use: userController.requestingUserDetails),
-        router.get("users", use: userController.index),
-        router.get("user", User.parameter, use: userController.details),
-        router.delete("user", User.parameter, use: userController.delete),
+        router.get("runs", Run.parameter, use: runController.fetchRunDetails),
+        router.post("runs", use: runController.createRun),
+        router.put("runs", Run.parameter, use: runController.editRun),
     ]
 
     protectedRoutes.addMiddleware(tokenAuthMiddleware, router: router)
