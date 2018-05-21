@@ -19,9 +19,13 @@ class RunController {
 
     func createRun(_ req: Request) throws -> Future<Run> {
         let requestingUser = try req.user()
+        return try createRunFor(user: requestingUser, req: req)
+    }
+
+    func createRunFor(user: User, req: Request) throws -> Future<Run> {
         let parseRequest = try req.content.decode(RunCreateData.self)
         let createUser = parseRequest.flatMap { (createData) -> Future<Run> in
-            let run = try Run(date: createData.date, lenghtInKM: createData.lenghtInKM, durationInSeconds: createData.durationInSeconds, userID: requestingUser.requireID())
+            let run = try Run(date: createData.date, lenghtInKM: createData.lenghtInKM, durationInSeconds: createData.durationInSeconds, userID: user.requireID())
             return run.save(on: req)
         }
         return createUser

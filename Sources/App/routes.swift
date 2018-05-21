@@ -16,6 +16,7 @@ public func routes(_ router: Router) throws {
         router.get("users", User.parameter, "runs", use: userController.fetchUserRuns),
         router.get("runs", use: runController.fetchCurrentUserRuns),
         router.post("runs", use: runController.createRun),
+        router.post("users", User.parameter, "runs", use: userController.createRunForUser),
         router.get("runs", Run.parameter, use: runController.fetchRunDetails),
         router.delete("runs", Run.parameter, use: runController.deleteRun),
         router.put("runs", Run.parameter, use: runController.editRun),

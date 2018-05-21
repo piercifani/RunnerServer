@@ -48,6 +48,18 @@ class UserController {
         }
     }
 
+    func createRunForUser(_ req: Request) throws -> Future<Run> {
+        let currentUser = try req.user()
+        guard currentUser.role == .admin else {
+            throw Abort(.unauthorized, reason: "Your role doesn't allow you to query this endpoint")
+        }
+
+        let user = try req.parameters.next(User.self)
+        return user.flatMap { (user) -> Future<Run> in
+            return try self.runController.createRunFor(user: user, req: req)
+        }
+    }
+
     func delete(_ req: Request) throws -> Future<HTTPStatus> {
         let requestingUser = try req.user()
         guard requestingUser.role == .admin else {
