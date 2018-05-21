@@ -3,11 +3,11 @@
 //
 
 import Vapor
-import Fluent
-import FluentSQLite
 import Authentication
+import Fluent
+import FluentPostgreSQL
 
-final class BearerToken: SQLiteUUIDModel {
+final class BearerToken: PostgreSQLUUIDModel {
     var id: UUID?
 
     var token: String

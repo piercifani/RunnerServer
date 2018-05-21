@@ -1,8 +1,8 @@
 import Vapor
 import Authentication
-import FluentSQLite
+import FluentPostgreSQL
 
-final class User: SQLiteUUIDModel {
+final class User: PostgreSQLUUIDModel {
 
     var id: UUID?
     var facebookID: String
