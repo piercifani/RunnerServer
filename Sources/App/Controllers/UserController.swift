@@ -32,14 +32,35 @@ class UserController {
     }
 
     func delete(_ req: Request) throws -> Future<HTTPStatus> {
-        let user = try req.user()
-        guard user.role == .admin else {
+        let requestingUser = try req.user()
+        guard requestingUser.role == .admin else {
             throw Abort(.unauthorized, reason: "Your role doesn't allow you to query this endpoint")
         }
 
-        return try req.parameters.next(User.self).flatMap { user in
+        // Transient properties
+        var _userID: UUID!
+
+        let deleteUser = try req.parameters.next(User.self).flatMap { user -> Future<Void> in
+            guard
+                let userID = user.id,
+                let requestingUserID = requestingUser.id,
+                userID != requestingUserID else {
+                    throw Abort(.notAcceptable, reason: "You can't delete yourself")
+            }
+            _userID = userID
             return user.delete(on: req)
-            }.transform(to: .ok)
+        }
+
+        let deleteTokens = deleteUser.flatMap { (_) -> Future<Void> in
+            let allTokensQuery = try BearerToken.query(on: req).filter(\.userID == _userID).all()
+            let allTokensDelete = allTokensQuery.flatMap({ (tokens) -> Future<Void> in
+                let allDeleteTasks = tokens.map({$0.delete(on: req)})
+                return allDeleteTasks.flatten(on: req)
+            })
+            return allTokensDelete
+        }
+
+        return deleteTokens.transform(to: HTTPStatus.ok)
     }
 
     func authenticateWithFacebook(_ req: Request) throws -> Future<LoginResponse> {
